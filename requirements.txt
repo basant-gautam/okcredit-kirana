@@ -1,0 +1,9 @@
+gradio
+google-genai
+pandas
+pillow
+scikit-learn
+matplotlib
+supabase
+numpy
+openpyxl
