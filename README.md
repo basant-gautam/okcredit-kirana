@@ -165,3 +165,4 @@ For issues and questions:
 **Happy Inventory Management! 🎉**
 
 *"Apne shop ko intelligent banao - Make your shop smart with OKCredit Kirana!"*
+app link https://okcredit-app-727763916674.asia-south1.run.app/

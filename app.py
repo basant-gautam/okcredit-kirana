@@ -279,23 +279,26 @@ class GeminiOCR:
     def from_image(self, image):
         """Extract items from image using Gemini Vision"""
         if image is None:
-            return ("❌ Image upload karo!", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
+            return ("❌ Bill ki photo upload karein!", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
         
         try:
             known_items = self._get_known_items()
             enhanced = self._enhance(image)
             
             prompt = f"""
-You are an expert OCR system for an IndianShop Mitra.
-Read ALL text from the image carefully — including handwritten text.
+You are Gemini 2.5 Flash acting as an expert OCR system for an Indian Shop Mitra/Kirana-stationery merchant.
+Read ALL text from the image carefully — printed, stamped, crumpled, faded, poorly lit, tilted, or handwritten.
 Known items in shop: {', '.join(known_items)}
 Rules:
-1. Read every word carefully, even if handwritten or unclear
-2. Map brand + item to item type only:
+1. Handle real physical bills that may be heavily crumpled, folded, shadowed, blurred, low-light, or photographed at an angle.
+2. Read messy handwritten text accurately, including Hindi/Hinglish words written in English script mixed with English.
+3. Be forgiving with local stationery brand spellings and abbreviations. Examples: "Natrj", "Natraz", "Natraj" → Natraj; "Apsra", "Apsraaa" → Apsara; "Camln" → Camlin; "Doms" → DOMS.
+4. Correct obvious OCR/spelling mistakes only when the intended stationery item or brand is clear.
+5. Map brand + item to item type only:
    • Apsara/Natraj Pencil  → item: Pencil,    brand: Apsara/Natraj
    • Cello/Reynolds Pen    → item: Pen Blue,  brand: Cello/Reynolds
-3. Parse quantity units correctly: "1 BOX" → unit:box | "5 pcs" → unit:pcs
-4. Default quantity = 1 if not written
+6. Parse quantity units correctly: "1 BOX" → unit:box | "5 pcs" → unit:pcs
+7. Default quantity = 1 if not written
 
 Return ONLY this JSON:
 {{
@@ -321,7 +324,7 @@ Return ONLY this JSON:
             
             data = self._parse_response(resp.text.strip())
             if data is None:
-                return (f"⚠️ Parse error:\n{resp.text[:400]}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
+                return (f"⚠️ Text samajhne mein parse error:\n{resp.text[:400]}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
             
             items = data.get('items', [])
             raw = data.get('raw_text', 'N/A')
@@ -330,7 +333,7 @@ Return ONLY this JSON:
             if not items:
                 return (f"⚠️ Koi item nahi mila.\nImage type : {itype}\nRaw text : {raw}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
             
-            status = f"✅ {len(items)} items mile!\n{'─'*40}\n🖼️ Type : {itype}\n📝 Text : {raw}\n{'─'*40}\n✏️ Neeche table edit karo"
+            status = f"✅ {len(items)} items mile!\n{'─'*40}\n🖼️ Bill Type : {itype}\n📝 OCR Text : {raw}\n{'─'*40}\n✏️ Neeche table check/edit karein"
             
             rows = []
             for i in items:
@@ -346,7 +349,7 @@ Return ONLY this JSON:
             return status, pd.DataFrame(rows)
         
         except Exception as e:
-            return (f"❌ Error: {e}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
+            return (f"❌ Error aaya: {e}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
     
     def from_text(self, text):
         """Extract items from text using Gemini"""
@@ -369,7 +372,7 @@ Return ONLY JSON:
             
             data = self._parse_response(resp.text.strip())
             if data is None:
-                return ("⚠️ Parse error!", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
+                return ("⚠️ Text samajhne mein parse error!", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
             
             items = data.get('items', [])
             rows = []
@@ -386,7 +389,7 @@ Return ONLY JSON:
             return f"✅ {len(rows)} items mile!", pd.DataFrame(rows)
         
         except Exception as e:
-            return (f"❌ Error: {e}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
+            return (f"❌ Error aaya: {e}", pd.DataFrame(columns=['Item','Quantity','Unit','Brand','Confidence','Original Text']))
 
 
 # ═══════════════════════════════════════════════════════════
@@ -579,18 +582,18 @@ def make_dashboard(results, store):
     ax.bar(range(len(top)), [r['avg_sale'] for r in top], color='#5352ed', edgecolor='#2a2a4a')
     ax.set_xticks(range(len(top)))
     ax.set_xticklabels([r['item'] for r in top], rotation=45, ha='right', color='white', fontsize=7)
-    ax.set_title('🏆 Top Sellers', color='white', fontsize=11, fontweight='bold')
+    ax.set_title('🏆 Sabse Zyada Bikne Wale', color='white', fontsize=11, fontweight='bold')
     
     # Chart 4: Stock vs Suggested Order Quantity
     ax = axes[1, 1]
     _style_ax(ax)
     ri = ([r for r in results if '🔴' in r['risk'] or '🟠' in r['risk']][:8] or results[:8])
     x = np.arange(len(ri))
-    ax.bar(x - .18, [r['stock'] for r in ri], .35, label='Current Stock', color='#5352ed', alpha=.85)
-    ax.bar(x + .18, [r['order_qty'] for r in ri], .35, label='Suggested Order', color='#ff6b35', alpha=.85)
+    ax.bar(x - .18, [r['stock'] for r in ri], .35, label='Abhi ka Stock', color='#5352ed', alpha=.85)
+    ax.bar(x + .18, [r['order_qty'] for r in ri], .35, label='Order Suggestion', color='#ff6b35', alpha=.85)
     ax.set_xticks(x)
     ax.set_xticklabels([r['item'] for r in ri], rotation=45, ha='right', color='white', fontsize=7)
-    ax.set_title('⚖️ Stock vs Suggested Order', color='white', fontsize=11, fontweight='bold')
+    ax.set_title('⚖️ Stock vs Order Suggestion', color='white', fontsize=11, fontweight='bold')
     ax.legend(fontsize=8, labelcolor='white', facecolor='#2a2a4a')
     
     plt.tight_layout()
@@ -601,7 +604,7 @@ def make_future_stock_projection_bar_chart(item_name, preds):
     if not preds:
         fig, ax = plt.subplots(1, 1, figsize=(10, 5))
         fig.patch.set_facecolor('#0f0f23')
-        ax.text(0.5, 0.5, 'No prediction data', ha='center', va='center', color='white', fontsize=14)
+        ax.text(0.5, 0.5, 'Prediction data nahi hai', ha='center', va='center', color='white', fontsize=14)
         ax.axis('off')
         return _buf_to_pil(fig)
     
@@ -632,15 +635,14 @@ def make_future_stock_projection_bar_chart(item_name, preds):
         linestyle='--',
         linewidth=1.6,
         alpha=0.9,
-        label=f'Reorder threshold ({reorder_threshold} units)'
+        label=f'Reorder level ({reorder_threshold} units)'
     )
 
     if stockout_day:
-        ax.axvline(stockout_day, color='#ff4757', linestyle=':', linewidth=2, alpha=0.9, label=f'Stockout day {stockout_day}')
+        ax.axvline(stockout_day, color='#ff4757', linestyle=':', linewidth=2, alpha=0.9, label=f'Stock khatam day {stockout_day}')
     
-    ax.set_xlabel('Days Ahead', color='white', fontsize=10)
-    ax.set_ylabel('Projected Stock Remaining', color='white', fontsize=10)
-    ax.set_title(f'📈 30-Day Forecast: {item_name}', color='white', fontsize=12, fontweight='bold')
+    ax.set_xlabel('Aane wale din', color='white', fontsize=10)
+    ax.set_ylabel('Bacha hua stock (estimate)', color='white', fontsize=10)
     ax.set_title(f'Future Stock Projection: {item_name}', color='white', fontsize=12, fontweight='bold')
     
     ax.tick_params(axis='y', labelcolor='white')
@@ -674,14 +676,21 @@ def make_future_stock_projection_bar_chart(item_name, preds):
 # AUTHENTICATION HANDLERS
 # ═══════════════════════════════════════════════════════════
 
+def get_post_auth_page_updates(user_id):
+    """Return final page visibility after checking whether onboarding is complete."""
+    store = ShopDataStore(user_id)
+    if store.has_inventory():
+        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
+    return gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+
 def handle_signup(email, password):
     """Sign up new user with Supabase Auth"""
     try:
         if not email or not password:
-            return "❌ Email and password required!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+            return "❌ Email aur password zaroori hai!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
         
         if len(password) < 6:
-            return "❌ Password must be at least 6 characters!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+            return "❌ Password kam se kam 6 characters ka hona chahiye!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
         
         response = supabase.auth.sign_up({
             "email": email,
@@ -697,18 +706,19 @@ def handle_signup(email, password):
             
             if login_response.user:
                 user_id = login_response.user.id
-                return f"✅ Account created! Welcome {email}", user_id, gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+                auth_update, onboarding_update, dashboard_update = get_post_auth_page_updates(user_id)
+                return f"✅ Account ban gaya! Swagat hai {email}", user_id, auth_update, onboarding_update, dashboard_update
         
-        return "❌ Signup failed. Email may already exist.", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+        return "❌ Signup nahi hua. Shayad email pehle se hai.", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
     
     except Exception as e:
-        return f"❌ Error: {str(e)}", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+        return f"❌ Error aaya: {str(e)}", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
 
 def handle_login(email, password):
     """Login existing user with Supabase Auth"""
     try:
         if not email or not password:
-            return "❌ Email and password required!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+            return "❌ Email aur password zaroori hai!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
         
         response = supabase.auth.sign_in_with_password({
             "email": email,
@@ -717,12 +727,13 @@ def handle_login(email, password):
         
         if response.user:
             user_id = response.user.id
-            return f"✅ Welcome back {email}!", user_id, gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+            auth_update, onboarding_update, dashboard_update = get_post_auth_page_updates(user_id)
+            return f"✅ Dobara swagat hai {email}!", user_id, auth_update, onboarding_update, dashboard_update
         
-        return "❌ Invalid credentials!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+        return "❌ Login details galat hain!", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
     
     except Exception as e:
-        return f"❌ Error: {str(e)}", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
+        return f"❌ Error aaya: {str(e)}", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
 
 def handle_logout():
     """Logout user"""
@@ -730,21 +741,7 @@ def handle_logout():
         supabase.auth.sign_out()
     except:
         pass
-    return "👋 Logged out", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
-
-def check_onboarding_status(user_id):
-    """Check if user has completed onboarding (has inventory)"""
-    if not user_id:
-        return gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
-    
-    store = ShopDataStore(user_id)
-    has_inv = store.has_inventory()
-    
-    if has_inv:
-        return gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
-    else:
-        return gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
-
+    return "👋 Logout ho gaya", None, gr.update(visible=True), gr.update(visible=False), gr.update(visible=False)
 
 # ═══════════════════════════════════════════════════════════
 # ONBOARDING HANDLERS
@@ -753,28 +750,28 @@ def check_onboarding_status(user_id):
 def handle_add_onboarding_item(user_id, name, stock, avg_sale, price):
     """Add item during onboarding"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     try:
         store = ShopDataStore(user_id)
         if not name or stock is None or avg_sale is None or price is None:
-            return "❌ All fields required!", store.get_inventory_df()
+            return "❌ Saari details bharna zaroori hai!", store.get_inventory_df()
         
         store.add_new_item(name, stock, avg_sale, price)
-        return f"✅ {name} added!", store.get_inventory_df()
+        return f"✅ {name} add ho gaya!", store.get_inventory_df()
     except Exception as e:
-        return f"❌ Error: {e}", pd.DataFrame()
+        return f"❌ Error aaya: {e}", pd.DataFrame()
 
 def handle_finish_onboarding(user_id):
     """Complete onboarding and go to main dashboard"""
     if not user_id:
-        return "❌ Not logged in!", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+        return "❌ Pehle login karein!", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
     
     store = ShopDataStore(user_id)
     if not store.has_inventory():
-        return "❌ Add at least 1 item first!", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
+        return "❌ Pehle kam se kam 1 item add karein!", gr.update(visible=False), gr.update(visible=True), gr.update(visible=False)
     
-    return "✅ Setup complete! Welcome to your dashboard", gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
+    return "✅ Setup complete! Ab dashboard use karein", gr.update(visible=False), gr.update(visible=False), gr.update(visible=True)
 
 
 # ═══════════════════════════════════════════════════════════
@@ -784,23 +781,23 @@ def handle_finish_onboarding(user_id):
 def handle_ocr_scan(user_id, image, text_input, source):
     """Handle OCR scan from image or text"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     ocr = GeminiOCR(user_id)
     
-    if source == "📸 Image" and image is not None:
+    if source == "📸 Photo (Image)" and image is not None:
         status, df = ocr.from_image(image)
         return status, df
-    elif source == "✍️ Text" and text_input:
+    elif source == "✍️ Text Likhein" and text_input:
         status, df = ocr.from_text(text_input)
         return status, df
     else:
-        return "❌ Please provide input!", pd.DataFrame()
+        return "❌ Photo ya text daalein!", pd.DataFrame()
 
 def confirm_sales(user_id, df, ocr_mode):
     """Confirm and record sales/purchases from OCR table"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     try:
         store = ShopDataStore(user_id)
@@ -815,7 +812,7 @@ def confirm_sales(user_id, df, ocr_mode):
             rows = df.to_dict('records') if hasattr(df, 'to_dict') else []
         
         if not rows:
-            return "❌ No items to confirm!", store.get_inventory_df()
+            return "❌ Confirm karne ke liye koi item nahi mila!", store.get_inventory_df()
         
         # Determine if this is a sale (subtract) or purchase (add)
         is_sale = "Sale" in ocr_mode or "Minus" in ocr_mode
@@ -834,70 +831,70 @@ def confirm_sales(user_id, df, ocr_mode):
                     if store.add_stock(item, qty):
                         success_count += 1
         
-        action_type = "sales" if is_sale else "purchases"
-        return f"✅ {success_count} {action_type} recorded!", store.get_inventory_df()
+        action_label = "bikri" if is_sale else "khareed"
+        return f"✅ {success_count} {action_label} record ho gayi!", store.get_inventory_df()
     
     except Exception as e:
-        return f"❌ Error: {e}", pd.DataFrame()
+        return f"❌ Error aaya: {e}", pd.DataFrame()
 
 def handle_manual_sale(user_id, item, qty):
     """Record manual sale"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     try:
         store = ShopDataStore(user_id)
         if not item or qty <= 0:
-            return "❌ Invalid input!", store.get_inventory_df()
+            return "❌ Galat input! Item aur quantity check karein.", store.get_inventory_df()
         
         if store.add_sale(item, qty):
-            return f"✅ Sold {qty}x {item}", store.get_inventory_df()
+            return f"✅ {qty}x {item} bikri record ho gayi", store.get_inventory_df()
         else:
-            return f"❌ Item {item} not found!", store.get_inventory_df()
+            return f"❌ Item {item} nahi mila!", store.get_inventory_df()
     except Exception as e:
-        return f"❌ Error: {e}", pd.DataFrame()
+        return f"❌ Error aaya: {e}", pd.DataFrame()
 
 def handle_add_stock(user_id, item, qty):
     """Add stock to existing item"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     try:
         store = ShopDataStore(user_id)
         if not item or qty <= 0:
-            return "❌ Invalid input!", store.get_inventory_df()
+            return "❌ Galat input! Item aur quantity check karein.", store.get_inventory_df()
         
         if store.add_stock(item, qty):
-            return f"✅ Added {qty}x {item} to stock", store.get_inventory_df()
+            return f"✅ {qty}x {item} stock mein jud gaya", store.get_inventory_df()
         else:
-            return f"❌ Item {item} not found!", store.get_inventory_df()
+            return f"❌ Item {item} nahi mila!", store.get_inventory_df()
     except Exception as e:
-        return f"❌ Error: {e}", pd.DataFrame()
+        return f"❌ Error aaya: {e}", pd.DataFrame()
 
 def handle_add_new_item(user_id, name, stock, avg_sale, price):
     """Add completely new item to inventory"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     try:
         store = ShopDataStore(user_id)
         if not name or stock is None or avg_sale is None or price is None:
-            return "❌ All fields required!", store.get_inventory_df()
+            return "❌ Saari details bharna zaroori hai!", store.get_inventory_df()
         
         if store.add_new_item(name, stock, avg_sale, price):
-            return f"✅ {name} added to inventory!", store.get_inventory_df()
+            return f"✅ {name} inventory mein add ho gaya!", store.get_inventory_df()
         else:
-            return "❌ Failed to add item!", store.get_inventory_df()
+            return "❌ Item add nahi ho paya!", store.get_inventory_df()
     except Exception as e:
-        return f"❌ Error: {e}", pd.DataFrame()
+        return f"❌ Error aaya: {e}", pd.DataFrame()
 
 def handle_excel_upload(user_id, file_obj):
     """Handle bulk Excel/CSV upload for inventory items"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame()
+        return "❌ Pehle login karein!", pd.DataFrame()
     
     if file_obj is None:
-        return "❌ Please upload a file!", pd.DataFrame()
+        return "❌ File upload karein!", pd.DataFrame()
     
     try:
         store = ShopDataStore(user_id)
@@ -914,20 +911,20 @@ def handle_excel_upload(user_id, file_obj):
             try:
                 df = pd.read_csv(file_path)
             except Exception as e:
-                return f"❌ CSV file read error: {str(e)}", store.get_inventory_df()
+                return f"❌ CSV file padhne mein error: {str(e)}", store.get_inventory_df()
         
         elif file_lower.endswith('.xlsx') or file_lower.endswith('.xls'):
             # Excel file - read with openpyxl engine
             try:
                 df = pd.read_excel(file_path, engine='openpyxl')
             except ImportError:
-                return "❌ openpyxl library missing!\n\nPlease install it:\n• Local: pip install openpyxl\n• Colab: !pip install openpyxl\n\nThen restart the app.", store.get_inventory_df()
+                return "❌ openpyxl library missing hai!\n\nInstall karein:\n• Local: pip install openpyxl\n• Colab: !pip install openpyxl\n\nPhir app restart karein.", store.get_inventory_df()
             except Exception as e:
-                return f"❌ Excel file read error: {str(e)}\n\nMake sure the file is a valid Excel file.", store.get_inventory_df()
+                return f"❌ Excel file padhne mein error: {str(e)}\n\nCheck karein file valid Excel hai.", store.get_inventory_df()
         
         else:
             # Unsupported file type
-            return "❌ Unsupported file format!\n\nPlease upload:\n• CSV files (.csv)\n• Excel files (.xlsx or .xls)", store.get_inventory_df()
+            return "❌ File format support nahi hai!\n\nPlease upload karein:\n• CSV files (.csv)\n• Excel files (.xlsx or .xls)", store.get_inventory_df()
         
         # Strip whitespace from column names for robust validation
         df.columns = df.columns.str.strip()
@@ -937,7 +934,7 @@ def handle_excel_upload(user_id, file_obj):
         missing_columns = [col for col in required_columns if col not in df.columns]
         
         if missing_columns:
-            return f"❌ Missing required columns: {', '.join(missing_columns)}\nRequired: {', '.join(required_columns)}", store.get_inventory_df()
+            return f"❌ Zaroori columns missing hain: {', '.join(missing_columns)}\nRequired columns: {', '.join(required_columns)}", store.get_inventory_df()
         
         # Validate and add items
         added_count = 0
@@ -956,63 +953,63 @@ def handle_excel_upload(user_id, file_obj):
                 try:
                     stock = int(float(row.get('Stock', 0)))
                 except (ValueError, TypeError):
-                    errors.append(f"Row {idx+2}: {item_name} - Invalid Stock value")
+                    errors.append(f"Row {idx+2}: {item_name} - Stock value galat hai")
                     continue
                 
                 try:
                     avg_sale = float(row.get('Avg Daily Sale', 1.0))
                 except (ValueError, TypeError):
-                    errors.append(f"Row {idx+2}: {item_name} - Invalid Avg Daily Sale value")
+                    errors.append(f"Row {idx+2}: {item_name} - Avg Daily Sale value galat hai")
                     continue
                 
                 try:
                     price = float(row.get('Price', 0.0))
                 except (ValueError, TypeError):
-                    errors.append(f"Row {idx+2}: {item_name} - Invalid Price value")
+                    errors.append(f"Row {idx+2}: {item_name} - Price value galat hai")
                     continue
                 
                 # Validate values are positive
                 if stock < 0 or avg_sale < 0 or price < 0:
-                    errors.append(f"Row {idx+2}: {item_name} - Negative values not allowed")
+                    errors.append(f"Row {idx+2}: {item_name} - Negative value allowed nahi hai")
                     continue
                 
                 # Add item to database
                 if store.add_new_item(item_name, stock, avg_sale, price):
                     added_count += 1
                 else:
-                    errors.append(f"Row {idx+2}: {item_name} - Failed to add (may already exist)")
+                    errors.append(f"Row {idx+2}: {item_name} - Add nahi hua (shayad pehle se hai)")
                 
             except Exception as e:
                 errors.append(f"Row {idx+2}: {str(e)}")
         
         # Build status message
         if added_count == 0 and not errors:
-            status_msg = "⚠️ No items found in file or all rows were empty"
+            status_msg = "⚠️ File mein item nahi mila ya saari rows khaali hain"
         elif added_count > 0:
-            status_msg = f"✅ Successfully added {added_count} items!"
+            status_msg = f"✅ {added_count} items successfully add ho gaye!"
         else:
-            status_msg = "❌ No items could be added"
+            status_msg = "❌ Koi item add nahi ho paya"
         
         if errors:
-            status_msg += f"\n\n⚠️ {len(errors)} errors encountered:\n"
+            status_msg += f"\n\n⚠️ {len(errors)} errors mile:\n"
             # Show first 5 errors
             for error in errors[:5]:
                 status_msg += f"  • {error}\n"
             if len(errors) > 5:
-                status_msg += f"  • ... and {len(errors) - 5} more errors"
+                status_msg += f"  • ... aur {len(errors) - 5} errors"
         
         return status_msg, store.get_inventory_df()
     
     except pd.errors.EmptyDataError:
-        return "❌ The file is empty!", store.get_inventory_df()
+        return "❌ File khaali hai!", store.get_inventory_df()
     except Exception as e:
         error_msg = str(e).lower()
         
         # Check for openpyxl missing error
         if "openpyxl" in error_msg or "no module named 'openpyxl'" in error_msg:
-            return "❌ openpyxl library missing!\n\nPlease install it:\n• Local: pip install openpyxl\n• Colab: !pip install openpyxl\n\nThen restart the app.", pd.DataFrame()
+            return "❌ openpyxl library missing hai!\n\nInstall karein:\n• Local: pip install openpyxl\n• Colab: !pip install openpyxl\n\nPhir app restart karein.", pd.DataFrame()
         
-        return f"❌ Error reading file: {str(e)}", pd.DataFrame()
+        return f"❌ File padhne mein error: {str(e)}", pd.DataFrame()
 
 def refresh_inventory(user_id):
     """Refresh inventory display"""
@@ -1025,7 +1022,7 @@ def refresh_inventory(user_id):
 def run_predictions(user_id):
     """Generate predictions and dashboard with action plan"""
     if not user_id:
-        return "❌ Not logged in!", pd.DataFrame(), None, ""
+        return "❌ Pehle login karein!", pd.DataFrame(), None, ""
     
     try:
         store = ShopDataStore(user_id)
@@ -1033,7 +1030,7 @@ def run_predictions(user_id):
         results = engine.all_predictions()
         
         if not results:
-            return "⚠️ No predictions available!", pd.DataFrame(), None, ""
+            return "⚠️ Abhi prediction available nahi hai!", pd.DataFrame(), None, ""
         
         # Create prediction table
         pred_df = pd.DataFrame([{
@@ -1050,44 +1047,44 @@ def run_predictions(user_id):
         dashboard_img = make_dashboard(results, store)
         
         # Generate action plan text
-        action_plan = "📋 *INVENTORY ACTION PLAN*\n\n"
+        action_plan = "📋 *STOCK ACTION PLAN*\n\n"
         
         # Critical items (need immediate attention)
         critical_items = [r for r in results if '🔴' in r['risk'] or r['days_left'] <= 3 or r['stock'] < (r['avg_sale'] * 3)]
         if critical_items:
-            action_plan += "⚠️ *URGENT - Order Immediately:*\n"
+            action_plan += "⚠️ *TURANT ORDER KAREIN:*\n"
             for item in critical_items:
-                action_plan += f"  • {item['item']}: {item['order_qty']} units (Stock: {item['stock']}, {item['days_left']:.1f} days left)\n"
+                action_plan += f"  • {item['item']}: {item['order_qty']} units (Stock: {item['stock']}, {item['days_left']:.1f} din bache)\n"
             action_plan += "\n"
         
         # High priority items
         high_items = [r for r in results if '🟠' in r['risk'] and r not in critical_items]
         if high_items:
-            action_plan += "🟠 *HIGH PRIORITY - Order Soon:*\n"
+            action_plan += "🟠 *HIGH PRIORITY - Jaldi order karein:*\n"
             for item in high_items:
-                action_plan += f"  • {item['item']}: {item['order_qty']} units (Stock: {item['stock']}, {item['days_left']:.1f} days left)\n"
+                action_plan += f"  • {item['item']}: {item['order_qty']} units (Stock: {item['stock']}, {item['days_left']:.1f} din bache)\n"
             action_plan += "\n"
         
         # Medium priority items
         medium_items = [r for r in results if '🟡' in r['risk']]
         if medium_items:
-            action_plan += "🟡 *MEDIUM PRIORITY - Monitor:*\n"
+            action_plan += "🟡 *MEDIUM PRIORITY - Nazar rakhein:*\n"
             for item in medium_items[:5]:  # Show top 5
-                action_plan += f"  • {item['item']}: {item['order_qty']} units (Stock: {item['stock']}, {item['days_left']:.1f} days left)\n"
+                action_plan += f"  • {item['item']}: {item['order_qty']} units (Stock: {item['stock']}, {item['days_left']:.1f} din bache)\n"
             if len(medium_items) > 5:
-                action_plan += f"  ... and {len(medium_items) - 5} more items\n"
+                action_plan += f"  ... aur {len(medium_items) - 5} items\n"
         
-        return f"✅ Predictions generated for {len(results)} items!", pred_df, dashboard_img, action_plan
+        return f"✅ {len(results)} items ke liye stock prediction ban gaya!", pred_df, dashboard_img, action_plan
     
     except Exception as e:
-        return f"❌ Error: {e}", pd.DataFrame(), None, ""
+        return f"❌ Error aaya: {e}", pd.DataFrame(), None, ""
 
 def show_future_stock_projection(user_id, item_name):
     """Show 30-day future stock projection for a specific item."""
     if not user_id:
-        return make_message_chart('Login required', 'Please login before generating a stock projection.')
+        return make_message_chart('Login zaroori hai', 'Stock projection banane se pehle login karein.')
     if not item_name or not item_name.strip():
-        return make_message_chart('Item required', 'Type an item name from your inventory.')
+        return make_message_chart('Item zaroori hai', 'Inventory se item name type karein.')
     
     try:
         store = ShopDataStore(user_id)
@@ -1096,32 +1093,32 @@ def show_future_stock_projection(user_id, item_name):
         matched_item = item_lookup.get(item_name.strip().lower())
 
         if not matched_item:
-            available = ', '.join(list(inventory.keys())[:8]) or 'No inventory items found'
-            return make_message_chart('Item not found', f'No inventory item matched "{item_name}". Available: {available}')
+            available = ', '.join(list(inventory.keys())[:8]) or 'Inventory mein koi item nahi mila'
+            return make_message_chart('Item nahi mila', f'"{item_name}" se match karta item nahi mila. Available: {available}')
 
         engine = PredictionEngine(store)
         engine.train()
         stockout, preds = engine.predict_item(matched_item)
         
         if not preds:
-            return make_message_chart('No projection data', f'Could not generate projection for {matched_item}.')
+            return make_message_chart('Projection data nahi hai', f'{matched_item} ke liye projection nahi ban paya.')
         
         return make_future_stock_projection_bar_chart(matched_item, preds)
     
     except Exception as e:
         print(f"❌ Trend error: {e}")
-        return make_message_chart('Projection error', str(e))
+        return make_message_chart('Projection error aaya', str(e))
 
 def generate_wa_order_link(user_id, plan_text, phone_number):
     """Generate WhatsApp order link from action plan"""
     if not user_id:
-        return "❌ Please login first"
+        return "❌ Pehle login karein"
     
     if not plan_text or not plan_text.strip():
-        return "❌ No action plan generated yet. Click 'Generate Predictions' first."
+        return "❌ Action plan abhi nahi bana. Pehle 'Stock ki Bhavishyavani (Predict)' click karein."
     
     if not phone_number or not phone_number.strip():
-        return "❌ Please enter vendor's phone number (with country code, e.g., 919876543210)"
+        return "❌ Vendor ka phone number daalein (country code ke saath, jaise 919876543210)"
     
     try:
         # Clean phone number (remove spaces, dashes, etc.)
@@ -1129,10 +1126,10 @@ def generate_wa_order_link(user_id, plan_text, phone_number):
         
         # Validate phone number
         if len(clean_phone) < 10:
-            return "❌ Invalid phone number. Please enter a valid number with country code."
+            return "❌ Phone number galat hai. Country code ke saath valid number daalein."
         
         # Format message
-        message = f"🛒 *Inventory Order Request*\n\n{plan_text}\n\n---\nGenerated byShop Mitra AI System"
+        message = f"🛒 *Stock Order Request*\n\n{plan_text}\n\n---\nShop Mitra AI System se bheja gaya"
         
         # URL encode the message
         encoded_message = urllib.parse.quote(message)
@@ -1154,10 +1151,10 @@ def generate_wa_order_link(user_id, plan_text, phone_number):
                 font-size: 16px;
                 box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             ">
-                📱 Send Order via WhatsApp
+                📱 WhatsApp se Order Bhejein
             </a>
             <p style="color: #888; font-size: 12px; margin-top: 8px;">
-                Click the button to open WhatsApp with your order message
+                Button dabane par WhatsApp mein order message khul jayega
             </p>
         </div>
         '''
@@ -1165,7 +1162,7 @@ def generate_wa_order_link(user_id, plan_text, phone_number):
         return html_button
     
     except Exception as e:
-        return f"❌ Error generating link: {str(e)}"
+        return f"❌ Link banane mein error: {str(e)}"
 
 
 # ═══════════════════════════════════════════════════════════
@@ -1181,15 +1178,15 @@ css = """
 .dataframe { border-radius:8px; overflow:hidden; }
 """
 
-with gr.Blocks(css=css, title="🏪Shop Mitra AI - Multi-Tenant SaaS") as app:
+with gr.Blocks(css=css, title="🏪 Shop Mitra AI - Kirana/Stationary App") as app:
     
     # Session State
     user_session = gr.State(value=None)  # Stores user_id when logged in
     
     gr.HTML("""
     <div class="main-header">
-        <h1 style="margin:0;color:white;font-size:28px;">🏪Shop Mitra AI System</h1>
-        <p style="margin:8px 0 0;color:#e0e0ff;font-size:14px;">   OCR +  ML Predictions</p>
+        <h1 style="margin:0;color:white;font-size:28px;">🏪 Shop Mitra AI System</h1>
+        <p style="margin:8px 0 0;color:#e0e0ff;font-size:14px;">Bill OCR + Stock ki Bhavishyavani</p>
     </div>
     """)
     
@@ -1198,20 +1195,20 @@ with gr.Blocks(css=css, title="🏪Shop Mitra AI - Multi-Tenant SaaS") as app:
     # ═══════════════════════════════════════════════════════════
     
     with gr.Column(visible=True) as auth_page:
-        gr.Markdown("## 🔐 Login or Sign Up")
+        gr.Markdown("## 🔐 Login ya Naya Account")
         
-        with gr.Tab("Login"):
+        with gr.Tab("Login Karein"):
             login_email = gr.Textbox(label="Email", placeholder="you@example.com")
             login_password = gr.Textbox(label="Password", type="password")
-            login_btn = gr.Button("🔑 Login", variant="primary")
-            login_status = gr.Textbox(label="Status", interactive=False)
+            login_btn = gr.Button("🔑 Login Karein", variant="primary")
+            login_status = gr.Textbox(label="Status / Haal", interactive=False)
         
-        with gr.Tab("Sign Up"):
+        with gr.Tab("Naya Account"):
             signup_email = gr.Textbox(label="Email", placeholder="you@example.com")
             signup_password = gr.Textbox(label="Password", type="password")
-            gr.Markdown("*Password must be at least 6 characters*")
-            signup_btn = gr.Button("📝 Create Account", variant="primary")
-            signup_status = gr.Textbox(label="Status", interactive=False)
+            gr.Markdown("*Password kam se kam 6 characters ka hona chahiye*")
+            signup_btn = gr.Button("📝 Account Banayein", variant="primary")
+            signup_status = gr.Textbox(label="Status / Haal", interactive=False)
     
     # ═══════════════════════════════════════════════════════════
     # PAGE 2: ONBOARDING PAGE
@@ -1219,66 +1216,66 @@ with gr.Blocks(css=css, title="🏪Shop Mitra AI - Multi-Tenant SaaS") as app:
     
     with gr.Column(visible=False) as onboarding_page:
         gr.Markdown("""
-## 🎉 Welcome! Let's Setup Your Shop
+## 🎉 Swagat hai! Apni Dukaan Setup Karein
 
-### How to Use This App:
-1. **Add Your Inventory**: Start by adding your stationery items below
-2. **Scan Bills**: Use OCR to automatically extract sales from bill images
-3. **Track Stock**: Monitor your inventory in real-time
-4. **Get Predictions**: ML-powered forecasts tell you when to reorder
+### App kaise use karein:
+1. **Inventory add karein**: Stationary items neeche add karein
+2. **Bill scan karein**: Bill ki photo se sales/purchase items nikalein
+3. **Stock dekhein**: Real-time inventory track karein
+4. **Prediction dekhein**: AI batayega kab reorder karna hai
 
-### Quick Start: Add Your First Items
-Choose how you'd like to add items - bulk upload or manual entry.
+### Quick Start: Pehle Items Add Karein
+Bulk upload ya manual entry mein se ek tareeka chunein.
         """)
         
         # Tabbed interface for different input methods
         with gr.Tabs():
             # Tab 1: Bulk Excel Upload
-            with gr.Tab("📄 Bulk Excel Upload"):
+            with gr.Tab("📄 Excel se Bulk Upload"):
                 gr.Markdown("""
-### 📋 Upload Your Inventory from Excel/CSV
+### 📋 Excel/CSV se Inventory Upload Karein
 
-Upload a spreadsheet file to add multiple items at once. Your file must contain these exact columns:
+Ek file upload karke kai items ek saath add karein. File mein ye exact columns hone chahiye:
 
-| Column Name | Description | Example |
+| Column Name | Matlab | Example |
 |-------------|-------------|---------|
-| **Item Name** | Name of the item | Pencil, Pen Blue, Eraser |
-| **Stock** | Current stock quantity | 50, 100, 25 |
-| **Avg Daily Sale** | Average units sold per day | 5, 10, 3 |
-| **Price** | Price in rupees (₹) | 5, 10, 3 |
+| **Item Name** | Item ka naam | Pencil, Pen Blue, Eraser |
+| **Stock** | Abhi kitna stock hai | 50, 100, 25 |
+| **Avg Daily Sale** | Roz ka average sale | 5, 10, 3 |
+| **Price** | Daam rupaye mein (₹) | 5, 10, 3 |
 
-**Format Requirements:**
+**Format Rules:**
 - File format: `.csv` or `.xlsx`
-- Column names must match exactly (case-sensitive)
-- All values must be positive numbers
+- Column names exact same hone chahiye (case-sensitive)
+- Sab values positive numbers honi chahiye
 
-**Sample Template:** See `inventory_template.csv` in project folder
+**Sample Template:** Project folder mein `inventory_template.csv` dekhein
                 """)
                 
                 onboard_excel_file = gr.File(
-                    label="Upload Excel/CSV File",
+                    label="Excel/CSV File Daalein",
                     file_types=[".csv", ".xlsx", ".xls"],
                     type="filepath"
                 )
-                onboard_excel_btn = gr.Button("📤 Upload & Import Items", variant="primary", size="lg")
+                onboard_excel_btn = gr.Button("📤 Upload Karke Items Jodein", variant="primary", size="lg")
             
             # Tab 2: Manual Entry
-            with gr.Tab("✍️ Add Manually"):
-                gr.Markdown("### ➕ Add Inventory Items One by One")
-                gr.Markdown("Fill in the details below to add items to your inventory manually.")
+            with gr.Tab("✍️ Haath se Add Karein"):
+                gr.Markdown("### ➕ Ek-ek Karke Inventory Items Jodein")
+                gr.Markdown("Neeche details bharke item manually inventory mein add karein.")
                 
                 with gr.Row():
-                    onboard_name = gr.Textbox(label="Item Name", placeholder="Pencil")
-                    onboard_stock = gr.Number(label="Current Stock", value=50)
+                    onboard_name = gr.Textbox(label="Item ka Naam", placeholder="Pencil")
+                    onboard_stock = gr.Number(label="Abhi ka Stock", value=50)
                 with gr.Row():
-                    onboard_avg = gr.Number(label="Avg Daily Sale", value=5)
-                    onboard_price = gr.Number(label="Price (₹)", value=5)
-                onboard_add_btn = gr.Button("➕ Add Item", variant="primary")
+                    onboard_avg = gr.Number(label="Roz ka Avg Sale", value=5)
+                    onboard_price = gr.Number(label="Daam (₹)", value=5)
+                onboard_add_btn = gr.Button("➕ Item Jodein", variant="primary")
         
         # Shared components below tabs (visible for both methods)
-        onboard_status = gr.Textbox(label="Status", lines=3, interactive=False)
-        onboard_inv_table = gr.DataFrame(label="📦 Your Inventory", interactive=False)
-        onboard_finish_btn = gr.Button("✅ Finish Setup & Go to Dashboard", variant="primary", size="lg")
+        onboard_status = gr.Textbox(label="Status / Haal", lines=3, interactive=False)
+        onboard_inv_table = gr.DataFrame(label="📦 Aapki Inventory", interactive=False)
+        onboard_finish_btn = gr.Button("✅ Setup Khatam, Dashboard Par Jaayein", variant="primary", size="lg")
     
     # ═══════════════════════════════════════════════════════════
     # PAGE 3: MAIN DASHBOARD
@@ -1287,40 +1284,40 @@ Upload a spreadsheet file to add multiple items at once. Your file must contain 
     with gr.Column(visible=False) as dashboard_page:
         
         with gr.Row():
-            gr.Markdown("## 📊 Your Shop Dashboard")
-            logout_btn = gr.Button("🚪 Logout", size="sm")
+            gr.Markdown("## 📊 Aapki Dukaan ka Dashboard")
+            logout_btn = gr.Button("🚪 Logout Karein", size="sm")
         
         with gr.Tabs():
             
             # TAB 1: OCR Scanner
-            with gr.Tab("📸 OCR Scanner"):
-                gr.Markdown('<div class="sec">SCAN BILLS WITH OCR</div>')
+            with gr.Tab("📸 Bill Scanner"):
+                gr.Markdown('<div class="sec">BILL OCR SE SCAN KAREIN</div>')
                 
                 # Bill Type Selection (Sale or Purchase)
                 ocr_mode = gr.Radio(
-                    choices=["📉 Sale (Minus Stock)", "📈 Purchase (Add Stock)"],
-                    value="📉 Sale (Minus Stock)",
-                    label="Bill Type"
+                    choices=["📉 Sale - Stock Ghatega (Minus Stock)", "📈 Purchase - Stock Badhega (Add Stock)"],
+                    value="📉 Sale - Stock Ghatega (Minus Stock)",
+                    label="Bill ka Type"
                 )
                 
-                ocr_source = gr.Radio(["📸 Image", "✍️ Text"], value="📸 Image", label="Input Method")
+                ocr_source = gr.Radio(["📸 Photo (Image)", "✍️ Text Likhein"], value="📸 Photo (Image)", label="Input ka Tareeka")
                 
                 with gr.Row():
                     with gr.Column():
-                        ocr_image = gr.Image(type="pil", label="Upload Bill Image")
-                        ocr_text = gr.Textbox(label="Or Type/Paste Text", lines=4, visible=False)
-                        ocr_scan_btn = gr.Button("🔍 Scan Now", variant="primary")
+                        ocr_image = gr.Image(type="pil", label="Bill ki Photo Daalein (Upload Bill)")
+                        ocr_text = gr.Textbox(label="Ya Bill ka Text Likhein/Paste Karein", lines=4, visible=False)
+                        ocr_scan_btn = gr.Button("🔍 Abhi Scan Karein", variant="primary")
                     
                     with gr.Column():
-                        ocr_status = gr.Textbox(label="Scan Status", lines=5, interactive=False)
+                        ocr_status = gr.Textbox(label="Scan ka Status", lines=5, interactive=False)
                 
-                ocr_table = gr.DataFrame(label="✏️ Edit Items Before Confirming", interactive=True)
-                ocr_confirm_btn = gr.Button("✅ Confirm Transaction", variant="primary", size="lg")
-                ocr_confirm_status = gr.Textbox(label="Confirmation Status", interactive=False)
+                ocr_table = gr.DataFrame(label="✏️ Confirm se Pehle Items Edit Karein", interactive=True)
+                ocr_confirm_btn = gr.Button("✅ Bill Confirm Karein", variant="primary", size="lg")
+                ocr_confirm_status = gr.Textbox(label="Confirmation Status / Haal", interactive=False)
                 
                 # Toggle visibility based on source
                 def toggle_ocr_input(source):
-                    if source == "📸 Image":
+                    if source == "📸 Photo (Image)":
                         return gr.update(visible=True), gr.update(visible=False)
                     else:
                         return gr.update(visible=False), gr.update(visible=True)
@@ -1328,103 +1325,103 @@ Upload a spreadsheet file to add multiple items at once. Your file must contain 
                 ocr_source.change(toggle_ocr_input, inputs=[ocr_source], outputs=[ocr_image, ocr_text])
             
             # TAB 2: Inventory Management
-            with gr.Tab("📦 Inventory"):
-                gr.Markdown('<div class="sec">MANAGE YOUR STOCK</div>')
+            with gr.Tab("📦 Inventory / Stock"):
+                gr.Markdown('<div class="sec">APNA STOCK MANAGE KAREIN</div>')
                 
-                inv_table = gr.DataFrame(label="Current Inventory", interactive=False)
-                inv_refresh_btn = gr.Button("🔄 Refresh", size="sm")
+                inv_table = gr.DataFrame(label="Abhi ki Inventory", interactive=False)
+                inv_refresh_btn = gr.Button("🔄 Refresh Karein", size="sm")
                 
-                gr.Markdown("### ➕ Quick Actions")
+                gr.Markdown("### ➕ Jaldi Actions")
                 
                 with gr.Row():
                     with gr.Column():
-                        gr.Markdown("**Record Manual Sale**")
-                        sale_item = gr.Textbox(label="Item Name", placeholder="Pencil")
-                        sale_qty = gr.Number(label="Quantity", value=1)
-                        sale_btn = gr.Button("💰 Record Sale", variant="primary")
-                        sale_status = gr.Textbox(label="Status", interactive=False)
+                        gr.Markdown("**Manual Sale Record Karein**")
+                        sale_item = gr.Textbox(label="Item ka Naam", placeholder="Pencil")
+                        sale_qty = gr.Number(label="Quantity / Kitna", value=1)
+                        sale_btn = gr.Button("💰 Bikri Record Karein", variant="primary")
+                        sale_status = gr.Textbox(label="Status / Haal", interactive=False)
                     
                     with gr.Column():
-                        gr.Markdown("**Add Stock (Existing Item)**")
-                        stock_item = gr.Textbox(label="Item Name", placeholder="Pencil")
-                        stock_qty = gr.Number(label="Quantity", value=10)
-                        stock_btn = gr.Button("📥 Add Stock", variant="primary")
-                        stock_status = gr.Textbox(label="Status", interactive=False)
+                        gr.Markdown("**Stock Jodein (Purana Item)**")
+                        stock_item = gr.Textbox(label="Item ka Naam", placeholder="Pencil")
+                        stock_qty = gr.Number(label="Quantity / Kitna", value=10)
+                        stock_btn = gr.Button("📥 Stock Jodein", variant="primary")
+                        stock_status = gr.Textbox(label="Status / Haal", interactive=False)
             
             # TAB 2.5: Add New Items (Bulk/Manual)
-            with gr.Tab("➕ Add New Items"):
-                gr.Markdown('<div class="sec">ADD INVENTORY ITEMS - BULK OR SINGLE</div>')
+            with gr.Tab("➕ Naye Items Jodein"):
+                gr.Markdown('<div class="sec">NAYE INVENTORY ITEMS JODEIN - BULK YA SINGLE</div>')
                 
                 with gr.Tabs():
                     # Sub-tab 1: Excel/CSV Upload
                     with gr.Tab("📄 Excel/CSV Upload"):
                         gr.Markdown("""
-### 📋 Upload Inventory from Excel/CSV
+### 📋 Excel/CSV se Inventory Upload Karein
 
-Upload a spreadsheet file with your inventory items. The file must contain these exact columns:
+Inventory items wali spreadsheet upload karein. File mein ye exact columns hone chahiye:
 
-| Column Name | Description | Example |
+| Column Name | Matlab | Example |
 |-------------|-------------|---------|
-| **Item Name** | Name of the item | Pencil, Pen Blue, Eraser |
-| **Stock** | Current stock quantity | 50, 100, 25 |
-| **Avg Daily Sale** | Average units sold per day | 5, 10, 3 |
-| **Price** | Price in rupees (₹) | 5, 10, 3 |
+| **Item Name** | Item ka naam | Pencil, Pen Blue, Eraser |
+| **Stock** | Abhi kitna stock hai | 50, 100, 25 |
+| **Avg Daily Sale** | Roz ka average sale | 5, 10, 3 |
+| **Price** | Daam rupaye mein (₹) | 5, 10, 3 |
 
-**Format Requirements:**
+**Format Rules:**
 - File format: `.csv` or `.xlsx`
-- Column names must match exactly (case-sensitive)
-- All values must be positive numbers
-- Item Name cannot be empty
+- Column names exact same hone chahiye (case-sensitive)
+- Sab values positive numbers honi chahiye
+- Item Name khaali nahi hona chahiye
 
-**Download Template:** [Sample CSV Template](#) *(Create a file with headers: Item Name,Stock,Avg Daily Sale,Price)*
+**Template:** `inventory_template.csv` use karein ya headers rakhein: Item Name,Stock,Avg Daily Sale,Price
                         """)
                         
                         excel_upload_file = gr.File(
-                            label="Upload Excel/CSV File",
+                            label="Excel/CSV File Daalein",
                             file_types=[".csv", ".xlsx", ".xls"],
                             type="filepath"
                         )
-                        excel_upload_btn = gr.Button("📤 Upload & Import Items", variant="primary", size="lg")
-                        excel_upload_status = gr.Textbox(label="Upload Status", lines=5, interactive=False)
+                        excel_upload_btn = gr.Button("📤 Upload Karke Items Jodein", variant="primary", size="lg")
+                        excel_upload_status = gr.Textbox(label="Upload Status / Haal", lines=5, interactive=False)
                     
                     # Sub-tab 2: Single Manual Entry
                     with gr.Tab("✍️ Single Manual Entry"):
-                        gr.Markdown("### Add One Item Manually")
-                        gr.Markdown("Fill in the details below to add a single item to your inventory.")
+                        gr.Markdown("### Ek Item Haath se Jodein")
+                        gr.Markdown("Neeche details bharke ek item inventory mein add karein.")
                         
                         with gr.Row():
-                            manual_new_name = gr.Textbox(label="Item Name", placeholder="e.g., Calculator")
+                            manual_new_name = gr.Textbox(label="Item ka Naam", placeholder="e.g., Calculator")
                             manual_new_stock = gr.Number(label="Stock", value=10, precision=0)
                         with gr.Row():
-                            manual_new_avg = gr.Number(label="Avg Daily Sale", value=2, precision=1)
-                            manual_new_price = gr.Number(label="Price (₹)", value=200, precision=2)
+                            manual_new_avg = gr.Number(label="Roz ka Avg Sale", value=2, precision=1)
+                            manual_new_price = gr.Number(label="Daam (₹)", value=200, precision=2)
                         
-                        manual_add_btn = gr.Button("➕ Add Item to Inventory", variant="primary", size="lg")
-                        manual_add_status = gr.Textbox(label="Status", interactive=False)
+                        manual_add_btn = gr.Button("➕ Item Inventory mein Jodein", variant="primary", size="lg")
+                        manual_add_status = gr.Textbox(label="Status / Haal", interactive=False)
             
             # TAB 3: Predictions & Analytics
-            with gr.Tab("📈 Predictions"):
-                gr.Markdown('<div class="sec">AI-POWERED STOCK FORECASTING</div>')
+            with gr.Tab("📈 Bhavishyavani"):
+                gr.Markdown('<div class="sec">AI SE STOCK KI BHAVISHYAVANI</div>')
                 
-                pred_run_btn = gr.Button("🚀 Generate Predictions", variant="primary", size="lg")
-                pred_status = gr.Textbox(label="Status", interactive=False)
+                pred_run_btn = gr.Button("🚀 Stock ki Bhavishyavani (Predict)", variant="primary", size="lg")
+                pred_status = gr.Textbox(label="Status / Haal", interactive=False)
                 
-                pred_table = gr.DataFrame(label="30-Day Forecast", interactive=False)
-                pred_dashboard = gr.Image(label="📊 Dashboard Overview", type="pil")
+                pred_table = gr.DataFrame(label="30 Din ka Forecast", interactive=False)
+                pred_dashboard = gr.Image(label="📊 Dashboard Overview / Jhalak", type="pil")
                 
-                gr.Markdown("### � ML Action Plan")
-                pred_plan = gr.Textbox(label="Action Plan", lines=10, interactive=False, placeholder="Generate predictions to see action plan...")
+                gr.Markdown("### 📋 ML Action Plan")
+                pred_plan = gr.Textbox(label="Action Plan / Kya Karna Hai", lines=10, interactive=False, placeholder="Prediction chalayein, phir action plan dikhega...")
                 
-                gr.Markdown("### 📱 Send Order via WhatsApp")
+                gr.Markdown("### 📱 WhatsApp se Order Bhejein")
                 with gr.Row():
-                    wa_phone = gr.Textbox(label="Vendor Phone Number", placeholder="919876543210 (with country code)", scale=3)
-                    wa_generate_btn = gr.Button("🔗 Generate WhatsApp Link", variant="primary", scale=1)
+                    wa_phone = gr.Textbox(label="Vendor ka Phone Number", placeholder="919876543210 (country code ke saath)", scale=3)
+                    wa_generate_btn = gr.Button("🔗 WhatsApp Link Banayein", variant="primary", scale=1)
                 wa_link_display = gr.HTML(label="WhatsApp Link")
                 
-                gr.Markdown("### Future Stock Projection")
-                trend_item = gr.Textbox(label="Item Name", placeholder="Pencil")
-                trend_btn = gr.Button("Show Future Stock Projection", variant="primary")
-                trend_chart = gr.Image(label="Future Stock Projection Bar Chart", type="pil")
+                gr.Markdown("### Aage ka Stock Projection")
+                trend_item = gr.Textbox(label="Item ka Naam", placeholder="Pencil")
+                trend_btn = gr.Button("Future Stock Projection Dikhao", variant="primary")
+                trend_chart = gr.Image(label="Future Stock Projection Chart", type="pil")
     
     # ═══════════════════════════════════════════════════════════
     # EVENT HANDLERS
@@ -1435,20 +1432,12 @@ Upload a spreadsheet file with your inventory items. The file must contain these
         handle_login,
         inputs=[login_email, login_password],
         outputs=[login_status, user_session, auth_page, onboarding_page, dashboard_page]
-    ).then(
-        check_onboarding_status,
-        inputs=[user_session],
-        outputs=[auth_page, onboarding_page, dashboard_page]
     )
     
     signup_btn.click(
         handle_signup,
         inputs=[signup_email, signup_password],
         outputs=[signup_status, user_session, auth_page, onboarding_page, dashboard_page]
-    ).then(
-        check_onboarding_status,
-        inputs=[user_session],
-        outputs=[auth_page, onboarding_page, dashboard_page]
     )
     
     logout_btn.click(
@@ -1545,5 +1534,5 @@ Upload a spreadsheet file with your inventory items. The file must contain these
 
 if __name__ == "__main__":
     print("🚀 StartingShop Mitra AI System...")
-    app.launch(debug=True, share=True)
+    app.launch(server_name="0.0.0.0", server_port=8080)
     
